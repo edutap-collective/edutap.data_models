@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "edutap.data_models"
+version = "0.1.0"
+description = "Shared vocabularies, message contract and settings building blocks for eduTAP"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "EUPL-1.2"
+authors = [{ name = "eduTAP" }]
+# Deliberately two dependencies and no more. This package is imported by every
+# other eduTAP package; anything it pulls in, they all pull in. A vocabulary and a
+# settings mixin need pydantic and nothing else -- no HTTP client, no Kafka driver,
+# no database layer. The rule to keep: if a dependency would only serve one
+# consumer, it belongs in that consumer.
+dependencies = [
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pdbp",
+    "pytest>=8.2",
+    "ruff>=0.16,<0.17",
+    "ty",
+]
+docs = ["myst-parser", "sphinx>=8"]
+
+[project.urls]
+Source = "https://github.com/edutap-collective/edutap.data_models"
+Issues = "https://github.com/edutap-collective/edutap.data_models/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/edutap"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "D", "S"]
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "S101"]
+# S105: bandit's hardcoded-password heuristic fires on TOPIC_PASS_COMMAND,
+# TOPIC_PASS_STATE and TOPIC_PASS_LOG because their names contain "PASS". They are
+# wallet-pass topics, not passwords. Scoped to this one file so the check still
+# applies everywhere else.
+"src/edutap/data_models/messaging.py" = ["S105"]
