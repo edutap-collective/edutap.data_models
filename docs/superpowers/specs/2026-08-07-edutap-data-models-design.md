@@ -1,68 +1,98 @@
-# `edutap.data_models` — Design
+# `edutap.data_models` — design
 
-**Datum:** 2026-08-07
-**Status:** Entwurf, Repository noch nicht angelegt
+**Date:** 2026-08-07
+**Status:** draft
 
-Ein Paket für die Verträge, die **mehrere** eduTAP-Pakete teilen: Vokabulare, Nachrichten-Hülle und wiederverwendbare Settings-Bausteine.
+A package for the contracts that **more than one** eduTAP package has to agree on:
+vocabularies, the message contract, and reusable settings building blocks.
 
-## Warum
+## Why
 
-Drei Sorten Duplikat, alle belegt.
+Three kinds of duplicate, all of them observed rather than imagined.
 
-**Vokabulare in drei divergierenden Kopien.** `PassLifecycleState` existiert in `lmu_edutap_common` (acht Werte, drei Zustandsautomaten vermischt), in `lmu_edutap_full_view` und in `edutap.data_provider` (je sechs). `WalletType` ebenso, in vier Schreibweisen. Die Docstring von `edutap.data_provider.vocabulary` hält bereits fest, dass ihre Schreibweisen die älteren ablösen und das Angleichen Folgearbeit ist.
+**Vocabularies in three diverging copies.** `PassLifecycleState` exists in
+`lmu_edutap_common` (eight values, three state machines conflated), in
+`lmu_edutap_full_view` and in `edutap.data_provider` (six each). `WalletType`
+likewise, in four spellings. The docstring of `edutap.data_provider.vocabulary`
+already records that its spellings supersede the older ones and that aligning them
+is follow-up work.
 
-**Der Nachrichtenvertrag.** Header-Block, Key-Regel und DLQ-Hülle aus dem Kafka-Schema müssen in sechs Paketen identisch sein. Sechs Kopien divergieren garantiert.
+**The message contract.** Header block, key rule and dead letter envelope have to be
+identical across six packages. Six copies diverge, and the divergence stays invisible
+until a consumer quietly stops recognising a message.
 
-**Settings, die überall gleich heißen sollen.** `sentry_dsn` ist das klarste Beispiel: In jedem Container derselbe Feldname, vom Swarm-Compose-File unterschiedlich besetzt. Heute stehen dafür zwei Muster nebeneinander — `LMU_EDUTAP_SENTRY_DSN_FILE` als Docker-Secret beim Backend, `GOOGLE_CALLBACK_SENTRY_DSN` als Klartext im Prod-Overlay.
+**Settings meant to be identical everywhere.** `sentry_dsn` is the clearest case: the
+same field name in every container, populated differently by the Swarm compose file.
+Today the same idea appears twice — as `LMU_EDUTAP_SENTRY_DSN_FILE`, a Docker secret
+on one service, and as `GOOGLE_CALLBACK_SENTRY_DSN`, a plain variable in the
+production overlay of another.
 
-## Was hineingehört
+## What belongs here
 
-| Modul | Inhalt |
+| Module | Contents |
 |---|---|
-| `vocabulary` | `PassLifecycleState`, `WalletType`, `FieldKind`, `Provider` — die kontrollierten Werte |
-| `messaging` | Header-Namen und -Bau, Key-Regel, DLQ-Hülle, logische Topic-Namen |
-| `settings` | wiederverwendbare pydantic-settings-Bausteine: `SentrySettings`, `KafkaSettings` (Bootstrap + Topic-Präfix + Consumer-Group), `ObservabilitySettings` |
-| `contracts` | die Nutzlast-Verträge, zuerst `pass-state/v1` |
+| `vocabulary` | `PassLifecycleState`, `WalletType`, `FieldKind`, `Provider` — the controlled values |
+| `messaging` | header names and construction, key rule, dead letter envelope, logical topic names |
+| `settings` | reusable pydantic-settings building blocks: `SentrySettings`, `KafkaSettings` (bootstrap, topic prefix, consumer group) |
+| `contracts` | the payload contracts, starting with `pass-state/v1` |
 
-### Die Settings-Bausteine
+### The settings building blocks
 
-Als Mixins, nicht als fertige Settings-Klasse — jedes Paket erbt, was es braucht, und behält seinen eigenen `env_prefix`:
+Mixins rather than a finished settings class — every package inherits what it needs
+and keeps its own `env_prefix`:
 
 ```python
 class KafkaSettings(BaseSettings):
     bootstrap_servers: str
-    topic_prefix: str                    # kein Default -- Start bricht ab
+    topic_prefix: str                    # no default -- start must abort
     consumer_group: str | None = None
 
     def topic(self, name: str) -> str:
         return f"{self.topic_prefix}.{name}"
 ```
 
-Dass `topic_prefix` keinen Default hat, ist Absicht: Ein fehlender Wert soll den Start abbrechen, statt still in die Topics der anderen Umgebung zu schreiben.
+`topic_prefix` deliberately has no default: a missing value must abort the start
+rather than let a service write quietly into another environment's topics.
 
-## Was nicht hineingehört
+## What does not belong here
 
-**Tabellendefinitionen einzelner Pakete.** `edutap.db_definitions` beruht darauf, dass jedes Paket sein Schema mitbringt und per Entry-Point anmeldet — daraus folgt die Eigentümerschaft und damit der Kollisionscheck. Zöge man Tabellen in ein gemeinsames Paket, wäre für kein Schema mehr jemand zuständig.
+**Table definitions of individual packages.** `edutap.db_definitions` relies on each
+package bringing its own schema and announcing it through an entry point — that is
+where ownership comes from, and with it the collision check. Pull the tables into a
+shared package and no schema has an owner any more.
 
 ```{note}
-Die Tabellen des `edutap.data_provider` sind ein möglicher Sonderfall: `person_view` und `pass_state` sind **Vertrag** für externe Konsumenten, nicht Implementierungsdetail eines Dienstes. Ob sie deshalb hierher gehören, ist offen und in der Datenbank-Referenz zu entscheiden — zusammen mit der Frage nach Schema oder Präfix.
+The tables of `edutap.data_provider` are a possible exception: `person_view` and
+`pass_state` are a **contract** for external consumers, not the implementation detail
+of one service. Whether they therefore belong here is open, and is to be decided
+together with the question of schema versus prefix.
 ```
 
-**Alles LMU-Spezifische.** `lmu_edutap_common` bleibt, was es ist; die `edutap.*`-Pakete dürfen nicht davon abhängen.
+**Anything LMU-specific.** `lmu_edutap_common` stays what it is; the `edutap.*`
+packages must not depend on it.
 
-## Abhängigkeitsrichtung
+## Dependency direction
 
-`edutap.data_models` hängt von **nichts** aus dem eduTAP-Bestand ab — nur von `pydantic` und `pydantic-settings`. Alles andere darf davon abhängen. Eine Bibliothek, die selbst Dienste kennt, ist keine.
+`edutap.data_models` depends on **nothing** from the eduTAP estate — only on
+`pydantic` and `pydantic-settings`. Everything else may depend on it. A library that
+knows about services is not a library.
 
-Dass Pakete in `edutap-collective` dadurch untereinander gekoppelt werden, ist der bewusst gezahlte Preis. Wer nur den Google-Callback-Handler nutzt, zieht sie mit — bei dieser Größe vertretbar, gemessen an sechs auseinanderlaufenden Kopien des Header-Vertrags.
+That this couples packages inside `edutap-collective` is the price paid knowingly.
+Someone using only the Google callback handler pulls it in too — acceptable at this
+size, measured against six diverging copies of the header contract.
 
-## Offene Punkte
+## Open points
 
-* **Repository anlegen** — `edutap-collective`, öffentlich. Nach der Namensregel wäre auch `edutap.data_models` korrekt: kein Wallet-Paket, also kein `wallet_`-Segment.
-* **Sentry oder Bugsink** — oder beides während einer Übergangszeit. Bei zwei Zielen braucht es zwei Felder, nicht eines.
-* **Migrationsreihenfolge** — welche Pakete zuerst umgestellt werden. Vorschlag: `edutap.data_provider` als Erstes, weil dessen Vokabular ohnehin als das führende gilt.
-* **Verhältnis zu `edutap.db_definitions`** — beide sind paketübergreifend. Klar trennen: `db_definitions` ist ein **Werkzeug** ohne Laufzeitrolle, `data_models` eine **Laufzeit-Bibliothek**.
+* **Sentry or Bugsink** — or both during a transition. Two targets need two fields,
+  not one.
+* **Migration order** — which packages move first. Suggestion: `edutap.data_provider`,
+  because its vocabulary is already the leading one.
+* **Relationship to `edutap.db_definitions`** — both are cross-package. Keep them
+  apart: `db_definitions` is a **tool** with no runtime role, `data_models` a
+  **runtime library**.
 
-## Hausstil
+## House style
 
-Wie `edutap.data_provider`: Makefile, tox über die unterstützten Python-Versionen, ruff, ty, Renovate als gehostete App, **kein** `uv.lock` (Bibliothek), Specs unter `docs/superpowers/`.
+As in `edutap.data_provider`: Makefile, tox across the supported Python versions,
+ruff, ty, Renovate as the hosted app, **no** `uv.lock` (this is a library), design
+records under `docs/superpowers/`.

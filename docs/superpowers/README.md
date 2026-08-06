@@ -1,11 +1,11 @@
-# Design-Doku (Claude-/Superpowers-Dokumente)
+# Design records (Claude/Superpowers documents)
 
-* **Spec** (`specs/JJJJ-MM-TT-<thema>-design.md`) — das im Dialog erarbeitete Design.
-* **Plan** (`plans/JJJJ-MM-TT-<thema>.md`) — die daraus abgeleitete Umsetzung.
+* **Spec** (`specs/YYYY-MM-DD-<topic>-design.md`) — the design worked out in dialogue.
+* **Plan** (`plans/YYYY-MM-DD-<topic>.md`) — the implementation derived from it.
 
-| Datum | Thema | Spec |
+| Date | Topic | Spec |
 |---|---|---|
-| 2026-08-07 | Zweck, Abgrenzung und Modulschnitt des Pakets | [`specs/2026-08-07-edutap-data-models-design.md`](specs/2026-08-07-edutap-data-models-design.md) |
+| 2026-08-07 | Purpose, boundaries and module layout of this package | [`specs/2026-08-07-edutap-data-models-design.md`](specs/2026-08-07-edutap-data-models-design.md) |
 
-Die Spec entstand im Meta-Repo `lmu_edutap_dev_setup`, weil es dieses Repository noch
-nicht gab; sie ist mit der Erstbefüllung hierher gewandert.
+The spec was written in the `lmu_edutap_dev_setup` meta repository because this one
+did not exist yet; it moved here with the initial commit.
