@@ -2,30 +2,49 @@
 
 Mixins rather than a finished settings class: each package keeps its own
 ``env_prefix`` and inherits only what it needs. The point is that the *field names*
-are identical everywhere, so a deployment sets ``<PREFIX>SENTRY_DSN`` and knows what
+are identical everywhere, so a deployment sets ``<PREFIX>ENVIRONMENT`` and knows what
 it did, whichever service it is configuring.
 
 That is not how it grew: today the same idea appears as ``LMU_EDUTAP_SENTRY_DSN_FILE``
 (a Docker secret, one service) and as ``GOOGLE_CALLBACK_SENTRY_DSN`` (a plain
 variable in the production overlay, another service).
+
+What is **not** here is the error tracker and the trace exporter. They moved to
+``edutap.observability_settings``, together with the options that decide what may
+leave a process -- options that were chosen against measurements and are worth
+nothing separated from the ``sentry_sdk.init()`` call that applies them. What stays
+is the one field a service needs whether or not it reports anywhere: which
+environment it believes it is running in.
 """
+
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
-class SentrySettings(BaseSettings):
-    """Error tracking, one project per service."""
+class ServiceSettings(BaseSettings):
+    """What every eduTAP service knows about itself, reporting or not."""
 
-    #: A DSN identifies one project, so every service gets its own rather than
-    #: sharing one. It is a write-only ingest key and thus low-sensitivity: a plain
-    #: environment variable is enough, a Docker secret would be effort without gain.
-    #: Empty means the integration stays off.
-    sentry_dsn: str = ""
+    #: Labels every error report and every exported span. Free text rather than a
+    #: closed set: ``production``, ``staging`` and ``dev`` are ours, and another
+    #: university's naming is not ours to constrain.
+    #:
+    #: Defaults to ``production`` on purpose. An unset value must not masquerade as
+    #: development -- events filed under development are the ones nobody goes
+    #: looking for.
+    environment: str = "production"
 
-    #: Environment name reported alongside every event. Without it, staging and
-    #: production errors land in one undifferentiated stream.
-    sentry_environment: str = ""
+    #: The off switch for tracing, metrics and log export. On by default:
+    #: instrumentation that is off unless enabled is instrumentation nobody notices
+    #: is broken. *Where* the data goes is decided by the OTLP endpoint, not here;
+    #: this exists so a test run or a service flooding the collector can be silenced
+    #: deliberately rather than by unsetting the endpoint and hoping.
+    telemetry_enabled: bool = True
+
+    #: Verbose or quiet. A closed set, so a misspelled level fails at startup
+    #: instead of silently falling back to whatever the logging library defaults to.
+    log_level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"] = "INFO"
 
 
 class KafkaSettings(BaseSettings):
