@@ -7,7 +7,7 @@ name = "edutap.data_models"
 version = "0.1.0"
 description = "Shared vocabularies, message contract and settings building blocks for eduTAP"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "EUPL-1.2"
 authors = [{ name = "eduTAP" }]
 # Deliberately two dependencies and no more. This package is imported by every
