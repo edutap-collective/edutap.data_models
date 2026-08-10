@@ -10,6 +10,22 @@ entry points, and that collection is what makes one package answerable for one
 schema.
 """
 
-from .vocabulary import FieldKind, PassLifecycleState, Provider, WalletType
+from .vocabulary import (
+    FieldKind,
+    HolderState,
+    InstanceState,
+    IssuanceState,
+    Provider,
+    WalletType,
+)
 
-__all__ = ["FieldKind", "PassLifecycleState", "Provider", "WalletType"]
+# PassLifecycleState is deliberately absent: it is superseded, still reachable
+# under edutap.data_models.vocabulary, and warns when it is used.
+__all__ = [
+    "FieldKind",
+    "HolderState",
+    "InstanceState",
+    "IssuanceState",
+    "Provider",
+    "WalletType",
+]

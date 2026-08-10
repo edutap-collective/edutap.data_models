@@ -16,17 +16,27 @@ values in `lmu_edutap_common` and with six in both `lmu_edutap_full_view` and
 identical in six packages. Six copies diverge, and the divergence is invisible until
 a consumer quietly stops recognising a message.
 
-**Settings that should mean the same thing everywhere.** `sentry_dsn` is the clearest
+**Settings that should mean the same thing everywhere.** `environment` is the clearest
 case: the same field name in every container, populated per service by the Swarm
-compose file.
+compose file, and read by the error tracker and the trace exporter alike.
 
 ## What belongs here
 
 | Module | Contents |
 |---|---|
-| `vocabulary` | `WalletType`, `PassLifecycleState`, `FieldKind`, `Provider` |
+| `vocabulary` | `WalletType`, `IssuanceState`, `HolderState`, `InstanceState`, `FieldKind`, `Provider` |
 | `messaging` | header names and construction, logical topic names, DLQ naming |
-| `settings` | `SentrySettings`, `KafkaSettings` — mixins, not a finished class |
+| `settings` | `ServiceSettings`, `KafkaSettings` — mixins, not a finished class |
+
+The pass lifecycle is spelled on **three** axes. `IssuanceState` is what the issuer
+did or wants and exists with no exemplar at all; `InstanceState` is what one exemplar
+at the holder is doing; `HolderState` is the summary of the second and is derived,
+never set. `PassLifecycleState` conflated the first two and is superseded — it is
+still reachable under `edutap.data_models.vocabulary` and warns when used.
+
+Error tracking and trace export live in `edutap.observability_settings`, not here.
+The options that decide what may leave a process were chosen against measurements
+and are worth nothing apart from the `sentry_sdk.init()` call that applies them.
 
 ## What does not
 
