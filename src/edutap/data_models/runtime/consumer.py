@@ -95,7 +95,18 @@ async def consume(
 
     The consumer is stopped on the way out either way, so a broker does not have to
     wait for the session timeout to notice this member is gone.
+
+    Raises ``ValueError`` for arguments that would silently lose messages, before the
+    first record is read. ``attempts=0`` is the dangerous one: the retry range would
+    be empty, so no attempt is ever made, no failure is ever raised, and every record
+    is committed without a handler having seen it. A misconfiguration has to cost the
+    start, never the messages.
     """
+    if attempts < 1:
+        raise ValueError(f"attempts must be at least 1, got {attempts}")
+    if backoff < 0:
+        raise ValueError(f"backoff must not be negative, got {backoff}")
+
     try:
         async for record in consumer:
             reason = await _handle(record, handler, attempts=attempts, backoff=backoff, dlq=dlq)
@@ -122,6 +133,10 @@ async def _handle(
 
     Raises rather than returning when there is no dead letter queue -- see
     :func:`consume`.
+
+    ``attempts`` is at least 1 because :func:`consume` refuses anything else. That is
+    what makes the fallthrough below unreachable: with an empty range this would
+    return ``None``, which the caller reads as "handled" and commits.
     """
     for attempt in range(1, attempts + 1):
         try:

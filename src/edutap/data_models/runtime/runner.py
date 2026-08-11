@@ -15,6 +15,7 @@ turns a broker that is briefly unreachable into a service that stays down.
 """
 
 import asyncio
+import contextlib
 import signal
 from collections.abc import Awaitable, Callable
 
@@ -31,7 +32,15 @@ async def run_until_one_stops(runners: list[Callable[[], Awaitable[None]]]) -> N
     that *returns* is the second case and needs help -- a ``TaskGroup`` is happy to
     let it finish and wait for the rest, but for a consumer that is a stopped topic
     with a live process, so it is turned into an error too.
+
+    An empty list is the third case and the quietest one. A ``TaskGroup`` with no
+    children returns immediately, so a service that wired up no consumer at all would
+    shut down cleanly with exit code 0 -- indistinguishable, to the orchestrator, from
+    a completed rolling update. A service whose whole job is to consume and which
+    consumes nothing has failed, and it has to say so.
     """
+    if not runners:
+        raise ValueError("no consumers to run; a service that consumes nothing is misconfigured")
 
     async def guard(runner: Callable[[], Awaitable[None]]) -> None:
         await runner()
@@ -88,4 +97,11 @@ async def serve(runners: list[Callable[[], Awaitable[None]]]) -> None:
 
     for task in pending:
         task.cancel()
+        # Awaited, not merely cancelled: cancel() only *requests* the cancellation.
+        # Dropping the task before the loop has delivered it leaves it pending at
+        # garbage collection, and asyncio then logs "Task was destroyed but it is
+        # pending!" -- noise arriving at exactly the moment somebody is reading the
+        # log to find out why the process ended.
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
     await consumers  # re-raises, which is the point
