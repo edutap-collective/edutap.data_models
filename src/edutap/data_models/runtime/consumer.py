@@ -83,12 +83,12 @@ async def consume(
     commit a message that never reached the dead letter topic, and nobody would ever
     learn that it existed.
 
-    Two error kinds, opposite treatment. An :class:`~edutap.data_models.runtime.
-    errors.Unprocessable` is the message's own fault and is parked on the first
-    attempt: retrying a malformed payload is three times the same answer. Everything
-    else is treated as the world's fault, retried with an exponential backoff, and
-    parked only if it survives every attempt -- otherwise a five second database
-    outage would fill the dead letter topic with perfectly good records.
+    Two error kinds, opposite treatment. An :class:`~.errors.Unprocessable` is the
+    message's own fault and is parked on the first attempt: retrying a malformed
+    payload is three times the same answer. Everything else is treated as the world's
+    fault, retried with an exponential backoff, and parked only if it survives every
+    attempt -- otherwise a five second database outage would fill the dead letter
+    topic with perfectly good records.
 
     Without a ``dlq`` nothing is swallowed: a failure ends the loop, which is the
     right behaviour while there is nowhere to park anything.

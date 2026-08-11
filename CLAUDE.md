@@ -29,14 +29,15 @@ Every other eduTAP package may depend on it; it depends on nothing from the esta
 
 ## Guard rails
 
-**Three runtime dependencies, and the third had to be argued for.** What this package
-pulls in, every consumer pulls in. `pydantic` and `pydantic-settings` are the base
-budget. A dependency that would serve only one consumer belongs in that consumer.
+**Three runtime dependencies, and a written reason for a fourth.** What this package
+pulls in, every consumer pulls in. `pydantic`, `pydantic-settings` and `structlog` are
+the budget. A dependency that would serve only one consumer belongs in that consumer.
 
-`structlog` is the third. The reason, in writing: the runtime loop's log records are
-structured — `topic`, `partition`, `offset`, `reason` — and that structure is their
-entire value in operation. Routed through stdlib `logging` it would collapse into a
-message string. Every consumer already uses it.
+`structlog` was the third and had to be argued for; the ceiling moved with it, the
+rule did not. The reason, in writing: the runtime loop's log records are structured —
+`topic`, `partition`, `offset`, `reason` — and that structure is their entire value in
+operation. Routed through stdlib `logging` it would collapse into a message string.
+Every consumer already uses it.
 
 **No Kafka driver here.** The runtime is written against protocols — `Consumer`,
 `Producer`, `Handler` — so `aiokafka` stays with the services that build consumers and

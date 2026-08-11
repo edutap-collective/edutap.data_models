@@ -74,8 +74,11 @@ is a statement about *which* service is reading, which is exactly the knowledge 
 library must not have.
 
 **The three tests covering `consumer_options()` stayed behind with it.** Everything
-else in `tests/test_consumer.py` and `tests/test_runner.py` moved with the assertions
-unchanged, which is what makes them evidence that the extraction changed no behaviour.
+else in `tests/test_consumer.py`, `tests/test_runner.py` and `tests/test_error_path.py`
+moved with the assertions unchanged, which is what makes them evidence that the
+extraction changed no behaviour. `test_error_path.py` carries the load here: it is the
+only place that runs `consume()` *with* a dead letter queue, so it is what holds the
+commit order — dead letter entry first, offset second — to its promise.
 
 ## Why `aiokafka` stays out
 
