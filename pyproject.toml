@@ -4,26 +4,35 @@ build-backend = "hatchling.build"
 
 [project]
 name = "edutap.data_models"
-version = "0.1.0"
-description = "Shared vocabularies, message contract and settings building blocks for eduTAP"
+version = "0.2.0"
+description = "Shared vocabularies, message contract, Kafka runtime and settings building blocks for eduTAP"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "EUPL-1.2"
 authors = [{ name = "eduTAP" }]
-# Deliberately two dependencies and no more. This package is imported by every
-# other eduTAP package; anything it pulls in, they all pull in. A vocabulary and a
-# settings mixin need pydantic and nothing else -- no HTTP client, no Kafka driver,
-# no database layer. The rule to keep: if a dependency would only serve one
-# consumer, it belongs in that consumer.
+# Three dependencies, and the third had to be argued for. This package is imported
+# by every other eduTAP package; anything it pulls in, they all pull in. The rule to
+# keep: if a dependency would only serve one consumer, it belongs in that consumer.
+# Notably still absent is the Kafka driver -- the runtime loop is written against
+# protocols, so `aiokafka` stays with the services that build consumers and
+# producers.
 dependencies = [
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    # The third, with the reason the guard rail asks for: the runtime loop's log
+    # records are structured -- topic, partition, offset, reason -- and that
+    # structure is their entire value in operation. Routed through stdlib logging it
+    # would collapse into a message string. Every consumer already uses it.
+    "structlog>=25",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pdbp",
     "pytest>=8.2",
+    # Test-only, not a runtime dependency: the runtime loop is written against plain
+    # asyncio, and anyio is here for its pytest plugin so the async tests can run.
+    "anyio>=4.4",
     "ruff>=0.16,<0.17",
     "ty",
 ]
@@ -48,7 +57,9 @@ select = ["E", "F", "W", "B", "I", "UP", "D", "S"]
 ignore = ["D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "S101"]
+# `tests/**` rather than `tests/*`: a single star does not cross a directory
+# separator, so the subdirectories under tests/ were not covered.
+"tests/**" = ["D", "S101"]
 # S105: bandit's hardcoded-password heuristic fires on TOPIC_PASS_COMMAND,
 # TOPIC_PASS_STATE and TOPIC_PASS_LOG because their names contain "PASS". They are
 # wallet-pass topics, not passwords. Scoped to this one file so the check still

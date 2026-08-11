@@ -14,14 +14,35 @@ German still produces English artefacts here.
 ## What this package is
 
 Shared contracts of the eduTAP packages: controlled vocabularies, the Kafka message
-contract, reusable settings building blocks. Every other eduTAP package may depend on
-it; it depends on nothing from the estate.
+contract, reusable settings building blocks — and, since 0.2.0, the Kafka **runtime**
+that consuming services share: the loop over a consumer, the error classification, the
+dead letter queue and the process that ends when any one consumer does.
+
+That last one widened the purpose, and the widening is deliberate rather than
+accidental. A runtime loop is not a contract in the way a vocabulary is. It earns its
+place because the *behaviour* is contract: the commit order, the DLQ naming, what a
+stop signal does. Two services need exactly this and a third was about to copy it, and
+three copies of a contract diverge. See
+[`docs/superpowers/specs/2026-08-11-kafka-runtime-extraction.md`](docs/superpowers/specs/2026-08-11-kafka-runtime-extraction.md).
+
+Every other eduTAP package may depend on it; it depends on nothing from the estate.
 
 ## Guard rails
 
-**Two runtime dependencies, and a written reason for a third.** What this package
-pulls in, every consumer pulls in. `pydantic` and `pydantic-settings` are the budget.
-A dependency that would serve only one consumer belongs in that consumer.
+**Three runtime dependencies, and the third had to be argued for.** What this package
+pulls in, every consumer pulls in. `pydantic` and `pydantic-settings` are the base
+budget. A dependency that would serve only one consumer belongs in that consumer.
+
+`structlog` is the third. The reason, in writing: the runtime loop's log records are
+structured — `topic`, `partition`, `offset`, `reason` — and that structure is their
+entire value in operation. Routed through stdlib `logging` it would collapse into a
+message string. Every consumer already uses it.
+
+**No Kafka driver here.** The runtime is written against protocols — `Consumer`,
+`Producer`, `Handler` — so `aiokafka` stays with the services that build consumers and
+producers. Anything that has to import the driver (`build_consumer()`,
+`build_dead_letter_producer()`) belongs in the service, and so does the service's
+settings class.
 
 **Never import from another eduTAP package.** A library that knows about services is
 not a library. If something here needs a service's type, the type is in the wrong
