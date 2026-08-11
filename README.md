@@ -27,6 +27,14 @@ compose file, and read by the error tracker and the trace exporter alike.
 | `vocabulary` | `WalletType`, `IssuanceState`, `HolderState`, `InstanceState`, `FieldKind`, `Provider` |
 | `messaging` | header names and construction, logical topic names, DLQ naming |
 | `settings` | `ServiceSettings`, `KafkaSettings` — mixins, not a finished class |
+| `runtime` | the shared Kafka runtime: `consume()`, `Unprocessable`, `DeadLetterQueue`, `serve()` |
+
+The `runtime` package is the odd one out and says so. It is behaviour rather than a
+contract in the way a vocabulary is, and it is here because the behaviour is what
+several services have to agree on: the commit order, the dead letter naming, what a
+stop signal does. It is written against protocols, so the Kafka driver is **not** a
+dependency of this package — `build_consumer()` and `build_dead_letter_producer()`
+stay in the service, with its settings class. See the design record of 2026-08-11.
 
 The pass lifecycle is spelled on **three** axes. `IssuanceState` is what the issuer
 did or wants and exists with no exemplar at all; `InstanceState` is what one exemplar
@@ -49,9 +57,13 @@ must not depend on it.
 
 ## Dependency direction
 
-This package depends on nothing from the eduTAP estate — only on `pydantic` and
-`pydantic-settings`. Everything else may depend on it. A library that knows about
-services is not a library.
+This package depends on nothing from the eduTAP estate — only on `pydantic`,
+`pydantic-settings` and `structlog`. Everything else may depend on it. A library that
+knows about services is not a library.
+
+`structlog` is the third and had to be argued for: the runtime loop's log records are
+structured — `topic`, `partition`, `offset`, `reason` — and that structure is their
+entire value in operation. Every consumer already uses it.
 
 ## Usage
 

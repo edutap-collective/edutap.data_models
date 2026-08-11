@@ -48,6 +48,21 @@ HEADER_CORRELATION_ID = "edutap-correlation-id"
 #: internal path, ``pass`` the pass lifecycle, ``device`` the layer between a pass and
 #: the devices holding it.
 TOPIC_PERSON = "person"
+
+#: What happened to a person after the fact, for consumers that hold data about one.
+#:
+#: Distinct from :data:`TOPIC_PERSON`, which is the *entrance*: that one carries a
+#: trigger from an identity management system and is read by a spooler. This one is
+#: written by that spooler once the view has changed, and it is read by services that
+#: keep something of their own per person -- photographs, for instance -- and have no
+#: other way to learn that a person is gone.
+#:
+#: Cut wider than "deleted" on purpose. The ``edutap-action`` header carries which
+#: transition it was, so a later suspension or reactivation is a new action on this
+#: topic rather than a thirteenth topic. The schema is deliberately small, and every
+#: name in it is a contract with its consumers.
+TOPIC_PERSON_LIFECYCLE = "person.lifecycle"
+
 TOPIC_PASS_COMMAND = "pass.command"
 TOPIC_PASS_STATE = "pass.state"
 TOPIC_PASS_LOG = "pass.log"
