@@ -4,7 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "edutap.data_models"
-version = "0.2.1"
+# 0.2.2 rather than releasing 0.2.1 to PyPI, and the reason is the tag. `v0.2.1`
+# points at the commit that added the mTLS transport, which is *before* the release
+# workflow existed -- a GitHub Release on it would fire the event and find no workflow
+# at that ref. Moving the tag was the alternative and is worse: consumers already
+# fetch `@v0.2.1` as a git reference, and a tag that changes under them is the kind of
+# thing nobody reconstructs later. So the first PyPI release gets its own number, and
+# from here one version means one tag means one commit.
+version = "0.2.2"
 description = "Shared vocabularies, message contract, Kafka runtime and settings building blocks for eduTAP"
 readme = "README.md"
 requires-python = ">=3.13"
