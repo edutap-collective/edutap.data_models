@@ -17,6 +17,7 @@ from .consumer import Consumer, DeadLetter, Handler, consume
 from .dlq import DeadLetterQueue, Producer, dead_letter_options
 from .errors import Unprocessable
 from .runner import install_signal_handlers, run_until_one_stops, serve
+from .transport import transport_options
 
 __all__ = [
     "Consumer",
@@ -30,4 +31,5 @@ __all__ = [
     "install_signal_handlers",
     "run_until_one_stops",
     "serve",
+    "transport_options",
 ]

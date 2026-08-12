@@ -17,6 +17,7 @@ is the one field a service needs whether or not it reports anywhere: which
 environment it believes it is running in.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -64,6 +65,33 @@ class KafkaSettings(BaseSettings):
 
     #: Consumer group of this service. ``None`` for pure producers.
     consumer_group: str | None = None
+
+    #: Certificate authority the broker's certificate is checked against.
+    #:
+    #: These three, and the password below, are the client half of mTLS. They are
+    #: paths rather than material because that is how an orchestrator delivers a
+    #: secret -- a file, mounted read-only, never an environment variable. Under the
+    #: shared ``EDUTAP_KAFKA_`` prefix the deployment therefore sets
+    #: ``EDUTAP_KAFKA_CA_FILE`` and its two siblings, and means the same thing in
+    #: every service.
+    #:
+    #: All three default to ``None`` together, which is the development case: a
+    #: broker without TLS, and nothing claimed. Setting *some* of them is a
+    #: deployment error -- see :func:`edutap.data_models.runtime.transport_options`.
+    ca_file: Path | None = None
+
+    #: This client's certificate. Its subject is the Kafka principal the broker
+    #: authorises, so which certificate is mounted decides what this service may
+    #: read and write.
+    cert_file: Path | None = None
+
+    #: The private key belonging to :attr:`cert_file`.
+    key_file: Path | None = None
+
+    #: Password of an encrypted :attr:`key_file`. Empty means the key is not
+    #: encrypted, which is not the same as an empty password -- the distinction is
+    #: made where the context is built, not here.
+    password: str = ""
 
     def topic(self, name: str) -> str:
         """Return the full topic name for a logical name.
