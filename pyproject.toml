@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "edutap.data_models"
-version = "0.2.0"
+version = "0.2.1"
 description = "Shared vocabularies, message contract, Kafka runtime and settings building blocks for eduTAP"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -33,6 +33,12 @@ dev = [
     # Test-only, not a runtime dependency: the runtime loop is written against plain
     # asyncio, and anyio is here for its pytest plugin so the async tests can run.
     "anyio>=4.4",
+    # Test-only for the same reason. The transport tests need a real certificate,
+    # key and CA, and generating them per run beats committing fixture files that
+    # expire -- a suite that goes red one morning for a reason unrelated to the
+    # change that triggered it teaches people to ignore it. Nothing at runtime
+    # imports this: `transport_options` builds its context from stdlib `ssl`.
+    "cryptography>=44",
     "ruff>=0.16,<0.17",
     "ty",
 ]
@@ -60,6 +66,12 @@ ignore = ["D203", "D213"]
 # `tests/**` rather than `tests/*`: a single star does not cross a directory
 # separator, so the subdirectories under tests/ were not covered.
 "tests/**" = ["D", "S101"]
+# S105/S106: the transport tests need a key password in the clear -- it belongs to a
+# throwaway key generated in a tmp_path and thrown away with it. Scoped to these two
+# files rather than added to `tests/**` so a real credential pasted into any other
+# test still gets caught.
+"tests/runtime/conftest.py" = ["S105"]
+"tests/runtime/test_transport.py" = ["S106"]
 # S105: bandit's hardcoded-password heuristic fires on TOPIC_PASS_COMMAND,
 # TOPIC_PASS_STATE and TOPIC_PASS_LOG because their names contain "PASS". They are
 # wallet-pass topics, not passwords. Scoped to this one file so the check still

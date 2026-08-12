@@ -81,6 +81,25 @@ settings = MySettings()                      # aborts without EDUTAP_MY_SERVICE_
 topic = settings.topic(TOPIC_PASS_STATE)     # edutap.production.pass.state
 ```
 
+Reaching a broker that requires mTLS is the same three settings fields everywhere —
+`ca_file`, `cert_file`, `key_file`, plus `password` for an encrypted key — and one
+function that turns them into driver options:
+
+```python
+from edutap.data_models.runtime import transport_options
+
+AIOKafkaConsumer(topic, bootstrap_servers=..., **transport_options(settings))
+```
+
+It returns `{}` when nothing is configured, which is the development case against a
+broker without TLS. Configuring only *some* of the three raises instead of falling
+back: against an SSL-only broker a silent fallback does not produce an unencrypted
+connection, it produces one that fails during the handshake — and that error names
+the broker rather than the secret nobody mounted.
+
+The context is built from the standard library, so the Kafka driver stays out of this
+package's dependencies.
+
 ## Development
 
 ```shell

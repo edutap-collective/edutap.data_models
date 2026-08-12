@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -14,6 +16,39 @@ def test_topic_prefix_has_no_default():
 def test_topic_composes_prefix_and_logical_name():
     settings = KafkaSettings(topic_prefix="edutap.production")
     assert settings.topic("pass.state") == "edutap.production.pass.state"
+
+
+def test_the_mtls_fields_are_named_after_the_variables_a_deployment_sets(monkeypatch):
+    # The field names are the contract. Under a service's env_prefix they become
+    # EDUTAP_KAFKA_CA_FILE and its siblings -- the same three the production overlay
+    # already sets for the google callback handler. Renaming one here silently stops
+    # a mounted secret from arriving, and the service falls back to plaintext against
+    # a broker that only speaks SSL.
+    class Prefixed(KafkaSettings):
+        model_config = {"env_prefix": "EDUTAP_KAFKA_"}
+
+    monkeypatch.setenv("EDUTAP_KAFKA_TOPIC_PREFIX", "edutap.test")
+    monkeypatch.setenv("EDUTAP_KAFKA_CA_FILE", "/run/secrets/kafka_ca")
+    monkeypatch.setenv("EDUTAP_KAFKA_CERT_FILE", "/run/secrets/kafka_client_cert")
+    monkeypatch.setenv("EDUTAP_KAFKA_KEY_FILE", "/run/secrets/kafka_client_key")
+
+    settings = Prefixed()
+
+    assert settings.ca_file == Path("/run/secrets/kafka_ca")
+    assert settings.cert_file == Path("/run/secrets/kafka_client_cert")
+    assert settings.key_file == Path("/run/secrets/kafka_client_key")
+
+
+def test_without_certificate_material_the_fields_stay_empty():
+    # All three default together, and the default is the development case. A default
+    # path would point at a file that is not there and turn every local run into a
+    # deployment error.
+    settings = KafkaSettings(topic_prefix="edutap.test")
+
+    assert settings.ca_file is None
+    assert settings.cert_file is None
+    assert settings.key_file is None
+    assert settings.password == ""
 
 
 def test_environment_defaults_to_production():
