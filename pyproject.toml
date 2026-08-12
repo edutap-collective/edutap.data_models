@@ -10,6 +10,16 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "EUPL-1.2"
 authors = [{ name = "eduTAP" }]
+# No `License ::` classifier: `license` above is a PEP 639 SPDX expression, and the
+# two together are rejected by the build backend rather than merely redundant.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 # Three dependencies, and the third had to be argued for. This package is imported
 # by every other eduTAP package; anything it pulls in, they all pull in. The rule to
 # keep: if a dependency would only serve one consumer, it belongs in that consumer.
