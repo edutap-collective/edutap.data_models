@@ -25,11 +25,14 @@ class WalletType(StrEnum):
 
     GOOGLE_ST = "GOOGLE_ST"
     GOOGLE_ACCESS = "GOOGLE_ACCESS"
+    GOOGLE_IDENTITY = "GOOGLE_IDENTITY"
     APPLE_VAS = "APPLE_VAS"
     APPLE_ACCESS = "APPLE_ACCESS"
     APPLE_IDENTITY = "APPLE_IDENTITY"
     SAMSUNG_ST = "SAMSUNG_ST"
     SAMSUNG_ACCESS = "SAMSUNG_ACCESS"
+    SAMSUNG_IDENTITY = "SAMSUNG_IDENTITY"
+    EUDI_PASS = "EUDI_PASS"
 
 
 class IssuanceState(StrEnum):
@@ -105,6 +108,7 @@ class Provider(StrEnum):
     APPLE = "APPLE"
     GOOGLE = "GOOGLE"
     SAMSUNG = "SAMSUNG"
+    EUDI = "EUDI"
 
 
 class PassLifecycleState(StrEnum):
