@@ -16,7 +16,9 @@ German still produces English artefacts here.
 Shared contracts of the eduTAP packages: controlled vocabularies, the Kafka message
 contract, reusable settings building blocks — and, since 0.2.0, the Kafka **runtime**
 that consuming services share: the loop over a consumer, the error classification, the
-dead letter queue and the process that ends when any one consumer does.
+dead letter queue and the process that ends when any one consumer does. Since 0.3.0
+the producing side as well — the durability options and a `publish()` that builds the
+envelope instead of trusting the caller to.
 
 That last one widened the purpose, and the widening is deliberate rather than
 accidental. A runtime loop is not a contract in the way a vocabulary is. It earns its

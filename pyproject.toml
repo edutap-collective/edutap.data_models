@@ -11,7 +11,7 @@ name = "edutap.data_models"
 # fetch `@v0.2.1` as a git reference, and a tag that changes under them is the kind of
 # thing nobody reconstructs later. So the first PyPI release gets its own number, and
 # from here one version means one tag means one commit.
-version = "0.2.2"
+version = "0.3.0"
 description = "Shared vocabularies, message contract, Kafka runtime and settings building blocks for eduTAP"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -94,3 +94,12 @@ ignore = ["D203", "D213"]
 # wallet-pass topics, not passwords. Scoped to this one file so the check still
 # applies everywhere else.
 "src/edutap/data_models/messaging.py" = ["S105"]
+# The same false positive, two more places. `EUDI_PASS` is a wallet type and
+# `pass_id`/`pass_template` are pass identifiers; none of them is a credential.
+#
+# `vocabulary.py` was already failing on `main` when this was added -- the entry that
+# introduced `EUDI_PASS` went in without the check being run. Fixed here rather than
+# left, because a red baseline makes every later run useless: nobody reads the output
+# of a check that is always red.
+"src/edutap/data_models/vocabulary.py" = ["S105"]
+"tests/test_messaging.py" = ["S105", "S106"]
