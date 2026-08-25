@@ -14,13 +14,13 @@ Only the mechanics live here; they are written against a producer protocol, so t
 Kafka driver stays a dependency of the consuming service.
 """
 
-from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any
 
 import structlog
 
 from ..messaging import dlq_of
+from .producer import Producer, producer_options
 
 log = structlog.get_logger(__name__)
 
@@ -39,21 +39,6 @@ HEADER_DLQ_PARKED_AT = "edutap-dlq-parked-at"
 HEADER_DLQ_PARKED_BY = "edutap-dlq-parked-by"
 
 
-class Producer(Protocol):
-    """What :class:`DeadLetterQueue` needs: something that publishes and confirms."""
-
-    async def send_and_wait(
-        self,
-        topic: str,
-        *,
-        key: bytes | None = None,
-        value: bytes | None = None,
-        headers: Sequence[tuple[str, bytes]] | None = None,
-    ) -> Any:
-        """Publish one record and wait for the broker to confirm it."""
-        ...
-
-
 def dead_letter_options(bootstrap_servers: str) -> dict[str, Any]:
     """Return how the dead letter producer is configured, before it is built.
 
@@ -61,16 +46,21 @@ def dead_letter_options(bootstrap_servers: str) -> dict[str, Any]:
     settings class a service has is its own business, and a library that knows one
     of them knows a service.
 
-    ``acks="all"`` is the load-bearing entry: the offset is committed on the strength
-    of this write. Acknowledged by the leader alone means a leader that dies before
-    its replicas catch up takes the entry with it -- after the loop has already moved
-    past the message.
+    Identical to :func:`edutap.data_models.runtime.producer.producer_options`, and
+    delegating rather than repeating it: the durability a dead letter write needs is
+    the durability any write needs, and two copies of that decision are two things to
+    keep in step.
+
+    ``acks="all"`` is the load-bearing entry here too, for its own reason: the offset
+    is committed on the strength of this write. Acknowledged by the leader alone means
+    a leader that dies before its replicas catch up takes the entry with it -- after
+    the loop has already moved past the message.
+
+    Kept as a separate name rather than pointing callers at ``producer_options``: a
+    service builds two producers for different jobs, and
+    ``dead_letter_producer_options`` in the service reads as what it is.
     """
-    return {
-        "bootstrap_servers": bootstrap_servers,
-        "acks": "all",
-        "enable_idempotence": True,
-    }
+    return producer_options(bootstrap_servers)
 
 
 class DeadLetterQueue:

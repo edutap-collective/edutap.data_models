@@ -25,9 +25,9 @@ compose file, and read by the error tracker and the trace exporter alike.
 | Module | Contents |
 |---|---|
 | `vocabulary` | `WalletType`, `IssuanceState`, `HolderState`, `InstanceState`, `FieldKind`, `Provider` |
-| `messaging` | header names and construction, logical topic names, DLQ naming |
+| `messaging` | header names and construction, logical topic names, schema and action names, the `pass.command` body, DLQ naming |
 | `settings` | `ServiceSettings`, `KafkaSettings` — mixins, not a finished class |
-| `runtime` | the shared Kafka runtime: `consume()`, `Unprocessable`, `DeadLetterQueue`, `serve()` |
+| `runtime` | the shared Kafka runtime: `consume()`, `publish()`, `Unprocessable`, `DeadLetterQueue`, `serve()` |
 
 The `runtime` package is the odd one out and says so. It is behaviour rather than a
 contract in the way a vocabulary is, and it is here because the behaviour is what
@@ -99,6 +99,36 @@ the broker rather than the secret nobody mounted.
 
 The context is built from the standard library, so the Kafka driver stays out of this
 package's dependencies.
+
+Sending is one call, and it builds the envelope rather than accepting one:
+
+```python
+from edutap.data_models import messaging
+from edutap.data_models.runtime import producer_options, publish
+
+producer = AIOKafkaProducer(**producer_options(settings.bootstrap_servers),
+                            **transport_options(settings))
+
+await publish(
+    producer,
+    settings.topic(messaging.TOPIC_PASS_COMMAND),
+    key=command.pass_id.encode(),
+    value=command.model_dump_json().encode(),
+    producer_name="my_service",
+    schema=messaging.SCHEMA_PASS_COMMAND,
+    event_id=str(uuid4()),
+    occurred_at=datetime.now(tz=UTC),
+    action=messaging.ACTION_CREATE,
+)
+```
+
+There is deliberately no way to publish without the header block. It was available as
+a separate call for two minor versions and the estate's one producer never made it —
+a body the broker accepts and every consumer parks, with success reported at the
+sending end. A rule that cannot be broken beats a rule that is written down.
+
+`acks="all"` and idempotence are not options in `producer_options()` either. An HTTP
+endpoint answers its caller on the strength of that write.
 
 ## Development
 
