@@ -158,3 +158,74 @@ def test_the_actions_of_pass_command_are_the_ones_consumers_know():
         messaging.ACTION_UPDATE,
         messaging.ACTION_DEACTIVATE,
     } == {"create", "update", "deactivate"}
+
+
+# --- person.changed ---------------------------------------------------------------
+
+
+class TestPersonChanged:
+    """The topic that says "re-project this person", and the body that carries nothing else.
+
+    Its whole design is one decision: the message carries the KEY and no payload. A
+    consumer reads the current state of the person itself, so a late or repeated
+    message cannot overwrite a newer one -- the same property the VZD spooler has,
+    where it comes from asking the directory instead of trusting an action.
+    """
+
+    def test_it_is_its_own_topic_and_not_an_action_on_the_lifecycle(self):
+        """Existence is one thing, content another, and the volumes are incomparable."""
+        assert messaging.TOPIC_PERSON_CHANGED == "person.changed"
+        assert messaging.TOPIC_PERSON_CHANGED != messaging.TOPIC_PERSON_LIFECYCLE
+
+    def test_the_body_carries_the_key_and_when_it_changed(self):
+        body = messaging.PersonChanged(
+            person_uid="abc123@lmu.de",
+            updated_at=datetime(2026, 9, 13, 3, 30, tzinfo=UTC),
+        )
+        assert body.person_uid == "abc123@lmu.de"
+
+    def test_the_body_is_never_empty(self):
+        """A null value is a TOMBSTONE, and log compaction deletes the record.
+
+        This is the trap this contract exists to avoid: "only the key" invites an
+        empty value, and on a compacted topic an empty value is the instruction to
+        forget the person -- so a new consumer group would inherit nothing to
+        back-fill from.
+        """
+        assert messaging.PersonChanged.model_fields["person_uid"].is_required()
+
+    def test_an_unknown_field_is_refused_rather_than_ignored(self):
+        """No payload means no payload. A body carrying person data is a v2, not a v1."""
+        with pytest.raises(ValidationError):
+            messaging.PersonChanged(
+                person_uid="abc123@lmu.de",
+                updated_at=datetime(2026, 9, 13, tzinfo=UTC),
+                display_name="E. Mustermann",
+            )
+
+    def test_the_message_cannot_be_edited_after_the_fact(self):
+        body = messaging.PersonChanged(
+            person_uid="abc123@lmu.de",
+            updated_at=datetime(2026, 9, 13, tzinfo=UTC),
+        )
+        with pytest.raises(ValidationError):
+            body.person_uid = "someone.else@lmu.de"
+
+    def test_it_has_its_own_schema_name(self):
+        assert messaging.SCHEMA_PERSON_CHANGED == "person-changed/v1"
+
+    def test_the_actions_say_where_the_occasion_came_from(self):
+        """Three producers, and the action tells them apart -- for a human, not for a branch.
+
+        A consumer that skipped work on `photo` would make ordering relevant again,
+        and the self-healing this whole design rests on would be gone.
+        """
+        assert messaging.ACTION_DIRECTORY == "directory"
+        assert messaging.ACTION_PHOTO == "photo"
+        assert messaging.ACTION_REPROJECT == "reproject"
+
+    def test_the_person_actions_are_not_the_pass_actions(self):
+        """Two namespaces on one header; sharing a value would make a routing bug silent."""
+        person = {messaging.ACTION_DIRECTORY, messaging.ACTION_PHOTO, messaging.ACTION_REPROJECT}
+        passes = {messaging.ACTION_CREATE, messaging.ACTION_UPDATE, messaging.ACTION_DEACTIVATE}
+        assert person.isdisjoint(passes)

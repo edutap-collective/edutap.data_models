@@ -10,7 +10,7 @@ See the Kafka topic schema design record for why the names look as they do.
 from collections.abc import Iterable
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from .vocabulary import IssuanceState, WalletType
 
@@ -67,6 +67,34 @@ TOPIC_PERSON = "person"
 #: name in it is a contract with its consumers.
 TOPIC_PERSON_LIFECYCLE = "person.lifecycle"
 
+#: "Re-project this person." Read by whoever derives something from a person's record.
+#:
+#: WHY ITS OWN TOPIC AND NOT AN ACTION ON :data:`TOPIC_PERSON_LIFECYCLE`, whose comment
+#: above argues the other way: lifecycle means *existence and status* -- deleted,
+#: suspended, reactivated. This one means *the content changed, derive again*. The
+#: volumes are incomparable. Deletions are rare; changes are the steady state of a
+#: directory with tens of thousands of people in it, and a consumer that listens for
+#: deletions should not have to filter a stream of updates to find one.
+#:
+#: THE MESSAGE CARRIES THE KEY AND NOTHING ELSE, and that is the whole design. A
+#: consumer reads the person's current state itself, so a late or repeated message
+#: cannot overwrite a newer one -- every ordering and every redelivery is equivalent.
+#: It is the same property the VZD spooler has, where it comes from asking the
+#: directory rather than trusting an action, and carrying the payload here would throw
+#: it away. The price is that nobody can see *what* changed, and it is paid knowingly.
+#:
+#: MEANT TO BE LOG-COMPACTED, keyed by ``person_uid``. A new consumer -- a new derived
+#: view -- then starts at the beginning and receives exactly one message per person,
+#: so back-filling is ordinary operation rather than a separate tool. Two consequences
+#: follow from that and are easy to get wrong:
+#:
+#: * A ``null`` value is a **tombstone**: the person is gone, and compaction drops the
+#:   record. :class:`PersonChanged` therefore has required fields -- "only the key"
+#:   must not become an empty value, or a new consumer would inherit nothing.
+#: * The last message per person survives indefinitely, which is what makes the
+#:   back-fill possible at all.
+TOPIC_PERSON_CHANGED = "person.changed"
+
 TOPIC_PASS_COMMAND = "pass.command"
 TOPIC_PASS_STATE = "pass.state"
 TOPIC_PASS_LOG = "pass.log"
@@ -87,6 +115,7 @@ TOPIC_DEVICE_REGISTRATION = "device.registration"
 SCHEMA_PASS_COMMAND = "pass-command/v1"
 SCHEMA_PASS_STATE = "pass-state/v1"
 SCHEMA_DEVICE_REGISTRATION = "device-registration/v1"
+SCHEMA_PERSON_CHANGED = "person-changed/v1"
 
 #: The values :data:`HEADER_ACTION` may carry on :data:`TOPIC_PASS_COMMAND`.
 #:
@@ -95,6 +124,24 @@ SCHEMA_DEVICE_REGISTRATION = "device-registration/v1"
 ACTION_CREATE = "create"
 ACTION_UPDATE = "update"
 ACTION_DEACTIVATE = "deactivate"
+
+#: The values :data:`HEADER_ACTION` may carry on :data:`TOPIC_PERSON_CHANGED`.
+#:
+#: Three producers write that topic -- the directory spooler after it wrote the record,
+#: the image service when a photograph changed, and a scheduled re-projection -- and
+#: these say which one it was.
+#:
+#: FOR TRACEABILITY, NEVER FOR CONTROL FLOW. A consumer may read the action while a
+#: person is working out why a row looks the way it does. It must not branch on it and
+#: skip work: the moment a handler says "on ``photo`` I only re-derive the image
+#: fields", ordering is relevant again and the self-healing the whole topic is built on
+#: is gone.
+#:
+#: Disjoint from the pass actions above on purpose. One header carries both namespaces,
+#: and a shared value would turn a routing mistake into a silent one.
+ACTION_DIRECTORY = "directory"
+ACTION_PHOTO = "photo"
+ACTION_REPROJECT = "reproject"
 
 #: Suffix of the dead letter queue belonging to an input topic.
 DLQ_SUFFIX = "dlq"
@@ -218,3 +265,41 @@ class PassCommand(BaseModel):
     #: The issuing institution, as in eduPerson. Optional: a single-tenant deployment
     #: knows it without being told, and one that does not is the one that needs it.
     schac_home_organization: str | None = None
+
+
+class PersonChanged(BaseModel):
+    """The body of one ``person.changed`` message, schema :data:`SCHEMA_PERSON_CHANGED`.
+
+    "This person changed; derive again." Deliberately the smallest useful body: the
+    key, and when the producer wrote it.
+
+    WHY NO PERSON DATA AT ALL. The consumer reads the person's current state itself,
+    which is what makes every ordering and every redelivery equivalent -- a late
+    message cannot overwrite a newer one, because it carries nothing to overwrite
+    with. Put an attribute in here and that property is gone, and it is the property
+    the whole topic exists for. Hence ``extra="forbid"``: a body carrying person data
+    is a different contract, not a v1 with decoration.
+
+    WHY NOT AN EMPTY BODY, when the key is in the record key anyway. The topic is
+    log-compacted, and there a ``null`` value is a **tombstone** -- the instruction to
+    forget the person. An "only the key" message written with an empty value would be
+    deleted by the next compaction run, and a new consumer group would find nothing to
+    back-fill from. Both fields are therefore required, and ``null`` stays reserved for
+    the deletion it means.
+
+    ``updated_at`` is not the consumer's watermark and must not become one. The
+    consumer's ordering comes from the topic partition, and its idempotence from
+    reading current state; this value is here so a person reading a message can tell
+    when the producer wrote it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The person, as the university identifies them. Same value as
+    #: ``edutap.db_definitions.public.tables.PersonView.person_uid`` and as the record
+    #: key -- the key is what compaction and partitioning use, this field is what makes
+    #: the body non-empty and readable on its own.
+    person_uid: str = Field(min_length=1)
+
+    #: When the producer wrote the record this message announces. Timezone-aware.
+    updated_at: AwareDatetime

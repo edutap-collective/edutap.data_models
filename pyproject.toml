@@ -11,7 +11,7 @@ name = "edutap.data_models"
 # fetch `@v0.2.1` as a git reference, and a tag that changes under them is the kind of
 # thing nobody reconstructs later. So the first PyPI release gets its own number, and
 # from here one version means one tag means one commit.
-version = "0.3.0"
+version = "0.3.1"
 description = "Shared vocabularies, message contract, Kafka runtime and settings building blocks for eduTAP"
 readme = "README.md"
 requires-python = ">=3.13"
