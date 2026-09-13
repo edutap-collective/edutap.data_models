@@ -214,18 +214,20 @@ class TestPersonChanged:
     def test_it_has_its_own_schema_name(self):
         assert messaging.SCHEMA_PERSON_CHANGED == "person-changed/v1"
 
-    def test_the_actions_say_where_the_occasion_came_from(self):
-        """Three producers, and the action tells them apart -- for a human, not for a branch.
+    def test_it_offers_no_actions(self):
+        """`person.changed` carries no action -- and the contract must not offer one.
 
-        A consumer that skipped work on `photo` would make ordering relevant again,
-        and the self-healing this whole design rests on would be gone.
+        0.3.1 published `directory`, `photo` and `reproject`. No producer ever wrote
+        one, and they would have been wrong anyway: the consumer reads the person's
+        current state itself and never branches on the action. That is the property
+        the topic exists for, because it makes every ordering and every redelivery
+        equivalent -- and a value in the contract is an invitation to branch on it.
+
+        Who wrote the message is already in `HEADER_PRODUCER`. Asserted rather than
+        simply deleted, so that re-adding one is a visible decision.
         """
-        assert messaging.ACTION_DIRECTORY == "directory"
-        assert messaging.ACTION_PHOTO == "photo"
-        assert messaging.ACTION_REPROJECT == "reproject"
-
-    def test_the_person_actions_are_not_the_pass_actions(self):
-        """Two namespaces on one header; sharing a value would make a routing bug silent."""
-        person = {messaging.ACTION_DIRECTORY, messaging.ACTION_PHOTO, messaging.ACTION_REPROJECT}
-        passes = {messaging.ACTION_CREATE, messaging.ACTION_UPDATE, messaging.ACTION_DEACTIVATE}
-        assert person.isdisjoint(passes)
+        for name in ("ACTION_DIRECTORY", "ACTION_PHOTO", "ACTION_REPROJECT"):
+            assert not hasattr(messaging, name), (
+                f"{name} is back. `person.changed` carries no action; see the note "
+                f"in messaging.py before adding one."
+            )

@@ -125,23 +125,25 @@ ACTION_CREATE = "create"
 ACTION_UPDATE = "update"
 ACTION_DEACTIVATE = "deactivate"
 
-#: The values :data:`HEADER_ACTION` may carry on :data:`TOPIC_PERSON_CHANGED`.
-#:
-#: Three producers write that topic -- the directory spooler after it wrote the record,
-#: the image service when a photograph changed, and a scheduled re-projection -- and
-#: these say which one it was.
-#:
-#: FOR TRACEABILITY, NEVER FOR CONTROL FLOW. A consumer may read the action while a
-#: person is working out why a row looks the way it does. It must not branch on it and
-#: skip work: the moment a handler says "on ``photo`` I only re-derive the image
-#: fields", ordering is relevant again and the self-healing the whole topic is built on
-#: is gone.
-#:
-#: Disjoint from the pass actions above on purpose. One header carries both namespaces,
-#: and a shared value would turn a routing mistake into a silent one.
-ACTION_DIRECTORY = "directory"
-ACTION_PHOTO = "photo"
-ACTION_REPROJECT = "reproject"
+# WITHDRAWN 2026-09-13: `person.changed` carries no action at all.
+#
+# 0.3.1 published three values here -- `directory`, `photo`, `reproject` -- for the
+# three producers that were meant to write the topic. No producer ever wrote one:
+# the spooler and the image path were not built, and the only writer that exists
+# sets no action.
+#
+# They would have been wrong anyway. The consumer reads the person's current state
+# itself and never branches on the action -- that is not an implementation detail,
+# it is the property the whole topic exists for, because it makes every ordering and
+# every redelivery equivalent. The comment they carried said exactly that ("never for
+# control flow") while offering the header that invites it.
+#
+# And `HEADER_PRODUCER` already names who wrote the message, which is the
+# traceability the action was there to add. It was already in the envelope.
+#
+# `person.changed` is therefore the second deliberate empty case beside
+# `pass.state`. Removing rather than deprecating is safe here: nothing imported
+# them, measured across all five repositories before removal.
 
 #: Suffix of the dead letter queue belonging to an input topic.
 DLQ_SUFFIX = "dlq"
